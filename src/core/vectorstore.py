@@ -34,7 +34,7 @@ def ocr_pdf_loader(file_path: str) -> list[Document]:
         
         # heurística: si la página tiene muy poco texto (<50 chars), asumimos que es imagen
         if len(text.strip()) < 50:
-            print(f"      - Pág {i+1}: Detectada imagen/escaneo. Aplicando OCR...")
+            logger.info(f"      - Pág {i+1}: Detectada imagen/escaneo. Aplicando OCR...")
             # convertir la página a imagen en memoria
             pix = page.get_pixmap()
             img_bytes = pix.tobytes("png")
