@@ -1,85 +1,163 @@
-# Agente Conversacional para Clínica Veterinaria Virtual "VetCare AI"
+# VetCare AI - Asistente Virtual Veterinario - Elías Currihuil
 
+**VetCare AI** es un sistema conversacional multi-agente diseñado para clínicas veterinarias. Actúa como primer punto de contacto para resolver dudas médicas generales y gestionar el agendamiento de citas, orquestado mediante **LangGraph** y potenciado por modelos de OpenAI.
 
-### **1. Resumen Ejecutivo**
+---
 
-El objetivo de este proyecto es desarrollar un agente conversacional de IA para una clínica veterinaria virtual. Este agente, llamado "VetCare AI", servirá como el primer punto de contacto para los clientes, ayudándoles con dudas generales sobre el cuidado de sus mascotas y agendando citas.
+## Guía de Inicio Rápido (Ejecución)
 
-Este desafío está diseñado para evaluar tu habilidad en la construcción de sistemas de IA complejos utilizando el ecosistema de LangChain, tu comprensión de arquitecturas de agentes y tu capacidad para integrar diferentes componentes (RAG, herramientas, APIs) en una solución cohesiva.
+Sigue estos pasos para levantar el agente y ejecutar la suite de pruebas en tu entorno local.
 
-### **2. Objetivo del Proyecto**
+### 1\. Prerrequisitos
 
-Crear un prototipo funcional de un agente conversacional multi-agente capaz de:
-1.  Responder preguntas sobre el cuidado de mascotas utilizando una base de conocimientos.
-2.  Agendar citas, recopilando la información necesaria y verificando la disponibilidad.
-3.  Detectar cuándo un usuario necesita atención humana y escalar la conversación.
+- Python 3.10 o superior.
+- Una API Key de OpenAI activa.
 
-### **3. Requisitos Funcionales (Core Features)**
+### 2\. Instalación
 
-El sistema debe estar orquestado como un sistema multi-agente, donde un agente principal (o un router) dirige las solicitudes del usuario al agente especializado correcto.
+```bash
+# 1. Clonar el repositorio y entrar al directorio
+git clone https://github.com/CQuarkH/code-challenge-ia.git
+cd code-challenge-ia
 
-#### **3.1. Agente de Consultas Generales (Agente RAG)**
-Este agente será responsable de responder preguntas generales sobre el cuidado de las mascotas.
+# 2. Crear y activar entorno virtual
+python -m venv venv
 
-*   **Funcionalidad:** Debe utilizar un enfoque de **Retrieval-Augmented Generation (RAG)**.
-*   **Base de Conocimientos:** Se te proporcionará una carpeta llamada `info-mascotas` que contiene varios documentos de texto. El agente debe usar estos documentos como su única fuente de verdad para responder a las preguntas.
-*   **Comportamiento Esperado:**
-    *   El usuario realiza una pregunta (p. ej., "¿Con qué frecuencia debo bañar a mi perro?").
-    *   El agente busca la información más relevante en los documentos de la base de conocimientos.
-    *   Utilizando la información recuperada, genera una respuesta coherente y útil en lenguaje natural.
-    *   Si no encuentra información relevante, debe indicarlo claramente al usuario (p. ej., "Lo siento, no tengo información sobre ese tema específico").
+# En Windows:
+venv\Scripts\activate
 
-#### **3.2. Agente de Agendamiento de Citas (Agente con Herramientas)**
-Este agente se activará cuando el usuario exprese la intención de agendar una visita.
+# En Mac/Linux:
+source venv/bin/activate
 
-*   **Recopilación de Datos:** El agente debe recopilar la siguiente información del usuario de manera conversacional:
-    *   **Datos del Dueño:** Nombre completo, número de teléfono, email.
-    *   **Datos de la Mascota:** Nombre, especie (perro, gato, etc.), raza (si aplica), edad.
-    *   **Motivo de la Consulta:** Una breve descripción del motivo de la visita.
-*   **Coordinación de Horarios:**
-    *   El agente debe preguntar al usuario por el día y la hora deseados para la cita.
-    *   Debe utilizar una **herramienta (Tool)** para verificar la disponibilidad.
-*   **Simulación de API de Disponibilidad:**
-    *   No necesitas construir una API real. Debes implementar una función que simule esta API.
-    *   **`check_availability(dia: str, hora: str) -> bool`**: Esta función recibirá un día y una hora y deberá devolver `True` (disponible) o `False` (no disponible) de forma **aleatoria**.
-    *   Si la hora solicitada no está disponible, el agente debe informar al usuario y sugerirle que pruebe con otra fecha/hora.
-*   **Confirmación:** Una vez que se encuentra un horario disponible y se han recopilado todos los datos, el agente debe confirmar la cita con el usuario, resumiendo toda la información.
+# 3. Instalar dependencias (Incluye motor OCR para lectura de PDFs)
+pip install -r requirements.txt
+```
 
-#### **3.3. Mecanismo de Escalación a Humano ("Escape Hatch")**
-El sistema debe ser capaz de reconocer cuándo la conversación debe ser transferida a un agente humano.
+### 3\. Configuración (.env)
 
-*   **Detección de Intención:** El agente principal (o un agente de triage) debe analizar el sentimiento del usuario o buscar frases explícitas como "quiero hablar con una persona", "conectar con un humano", "estoy frustrado con este bot", etc.
-*   **Simulación de API de Escalación:**
-    *   Al detectar la necesidad de escalación, el sistema debe llamar a una **herramienta (Tool)** que simule una llamada a una API para solicitar atención humana.
-    *   **`request_human_agent(user_info: dict)`**: Esta función recibirá los datos del usuario y simulará la creación de un ticket de soporte. Para este desafío, es suficiente con que la función imprima un mensaje en la consola, como: `TICKET CREADO: El usuario [Nombre del usuario] en el [teléfono] ha solicitado atención humana.`
+Crea un archivo llamado `.env` en la raíz del proyecto y define tu llave de API:
 
-### **4. Requisitos Técnicos y Arquitectónicos**
+```env
+OPENAI_API_KEY=sk....
+```
 
-*   **Lenguaje:** Python.
-*   **Framework Principal:** **LangChain**. Se recomienda encarecidamente el uso de **LangGraph** para orquestar el flujo entre los diferentes agentes.
-*   **Modelo de Lenguaje (LLM):** Utiliza los modelos de OpenAI. Se te proporcionará una clave de API con crédito suficiente para el desarrollo y las pruebas.
-*   **Vector Store (para RAG):** Eres libre de elegir la biblioteca que prefieras para crear los embeddings y el índice vectorial (p. ej., ChromaDB, FAISS, etc.).
-*   **Interfaz:** La interfaz de usuario no es el foco principal. Puedes optar por:
-    *   Un **CLI (Command-Line Interface)** interactivo.
-    *   (Opcional) Una interfaz web simple usando **Streamlit** o **Gradio**, si te sientes cómodo con ello.
+### 4\. Ejecutar la Aplicación
 
-### **5. Entregables**
+Para iniciar la interfaz de chat en consola (CLI):
 
-1.  **Código Fuente:** El código completo de tu proyecto.
-    *   Debe ser entregado en un repositorio Git (p. ej., GitHub, GitLab), al cual nos darás acceso.
-2.  **Documentación (`README.md`):** Un archivo `README.md` claro y completo en la raíz del repositorio que incluya:
-    *   Una breve descripción del proyecto.
-    *   Instrucciones detalladas sobre cómo configurar el entorno virtual e instalar las dependencias (p. ej., un archivo `requirements.txt`).
-    *   Instrucciones claras sobre cómo ejecutar la aplicación.
-    *   Una breve explicación de tus **decisiones arquitectónicas**: ¿Cómo estructuraste los agentes? ¿Por qué elegiste esa estructura? ¿Cómo funciona el flujo en LangGraph (si lo usaste)?
+```bash
+python main.py
+```
 
-### **6. Criterios de Evaluación**
+_Nota: Para mantener la interfaz limpia, los logs técnicos de depuración se escriben en `logs/app.log`._
 
-Serás evaluado/a en base a los siguientes criterios:
+### 5\. Ejecutar Tests
 
-*   **Funcionalidad:** ¿El agente cumple con todos los requisitos funcionales descritos en este documento?
-*   **Calidad de la Arquitectura:** La lógica y la solidez del diseño de tu sistema multi-agente. La claridad en la separación de responsabilidades entre los agentes.
-*   **Calidad del Código:** Legibilidad, modularidad, eficiencia y adherencia a las buenas prácticas de Python.
-*   **Uso de LangChain/LangGraph:** Tu capacidad para utilizar las herramientas del ecosistema de LangChain de manera efectiva e idiomática.
-*   **Documentación:** La claridad y exhaustividad de tu archivo `README.md`. Un buen `README` es fundamental.
-*   **(Bonus) Robustez:** ¿Cómo manejas los errores y los casos límite? (p. ej., entradas de usuario ambiguas, fallos en la simulación de API, etc.).
+El proyecto cuenta con una cobertura de pruebas automatizadas con `pytest`:
+
+```bash
+pytest
+```
+
+**Qué se evalúa en los tests:**
+
+- **Unitarios:** Clasificación de intenciones del Router y patrones Singleton.
+- **Integración (RAG):** Capacidad de leer PDFs escaneados y responder preguntas médicas.
+- **Flujo (Booking):** Capacidad del agente para recordar datos (Slot Filling) turno a turno.
+
+---
+
+## 🏗 Arquitectura y Patrones de Diseño
+
+El sistema implementa una arquitectura modular basada en tres patrones de diseño fundamentales para garantizar escalabilidad y mantenibilidad.
+
+### 1\. Patrón Strategy (Estrategia)
+
+- **Ubicación:** Directorio `src/agents/`.
+- **Implementación:** Cada módulo (`rag.py`, `booking.py`, `router.py`) encapsula una familia de algoritmos intercambiables.
+- **Uso:** El `Router` evalúa el contexto y selecciona dinámicamente qué estrategia ejecutar. Esto permite modificar la lógica de agendamiento sin riesgo de romper la lógica de consultas médicas.
+
+### 2\. Patrón State (Estado)
+
+- **Ubicación:** `src/state.py` y Orquestación LangGraph.
+- **Implementación:** Se define un objeto `AgentState` (TypedDict) que actúa como una pizarra compartida (_Blackboard_).
+- **Uso:** Permite la persistencia de datos (como el nombre de la mascota o el historial de conversación) a través de los diferentes nodos del grafo, transformando el chatbot en una Máquina de Estados Finitos.
+
+### 3\. Patrón Singleton (Instancia Única)
+
+- **Ubicación:** `src/core/`.
+- **Implementación:** Módulos `llm.py` y `vectorstore.py`.
+- **Uso:** Garantiza que objetos pesados como la conexión a OpenAI o la carga de la base de datos vectorial (ChromaDB) se instancien una sola vez en el ciclo de vida de la aplicación, optimizando memoria y latencia.
+
+---
+
+## 📝 Registro de Decisiones de Arquitectura (ADRs)
+
+### ADR-001: Orquestación con LangGraph vs. LangChain Chains
+
+- **Contexto:** El flujo de agendamiento de citas es cíclico (Solicitar dato -\> Validar -\> Solicitar siguiente dato -\> Error -\> Repetir).
+- **Decisión:** Se utilizó **LangGraph**.
+- **Justificación:** Las cadenas tradicionales (Chains) son DAGs (Grafos Acíclicos Dirigidos) y no manejan bien los bucles. LangGraph permite definir flujos cíclicos y persistencia de memoria nativa, ideal para el agente de "Slot Filling".
+
+### ADR-002: Base Vectorial ChromaDB
+
+- **Contexto:** Necesidad de almacenamiento de embeddings para RAG.
+- **Decisión:** Se utilizó **ChromaDB** (modo local).
+- **Justificación:** Facilita el despliegue del prototipo sin necesidad de contenedores Docker adicionales. Permite persistencia en disco simple.
+
+### ADR-003: Embeddings de OpenAI (`text-embedding-3-small`)
+
+- **Contexto:** Búsqueda semántica en documentos veterinarios.
+- **Decisión:** Uso de embeddings de OpenAI sobre modelos locales (HuggingFace).
+- **Justificación:** Mayor fidelidad semántica en español y mejor rendimiento general para distinguir matices en preguntas médicas complejas.
+
+### ADR-004: Modelo GPT-3.5-Turbo
+
+- **Contexto:** Inferencia y generación de texto.
+- **Decisión:** Uso de `gpt-3.5-turbo`.
+- **Justificación:** Ofrece el mejor equilibrio costo-beneficio. Su latencia es lo suficientemente baja para una experiencia de chat fluida, y su capacidad de razonamiento es suficiente para la clasificación de intenciones y extracción de entidades.
+
+---
+
+## 🛠 Desafíos Técnicos y Soluciones
+
+### El Problema del "PDF Ciego" (RAG + OCR)
+
+Durante el desarrollo, el módulo RAG fallaba al responder preguntas contenidas en `Tenencia-Responsable.pdf`.
+
+- **Diagnóstico:** El PDF no contenía capa de texto seleccionable; estaba compuesto íntegramente por imágenes escaneadas. Las librerías estándar (`pypdf`) extraían cadenas vacías.
+- **Solución:** Se implementó un pipeline de ingesta híbrido en `src/core/vectorstore.py`.
+  1.  El sistema intenta leer el PDF.
+  2.  Si detecta páginas con bajo conteo de caracteres, activa un motor **OCR (RapidOCR + ONNX)**.
+  3.  Convierte la página a imagen en memoria, extrae el texto y genera el documento vectorial.
+      _Resultado:_ El sistema ahora puede "leer" documentos escaneados transparentemente.
+
+### Persistencia en Agente de Citas (Booking Agent)
+
+Para lograr que el agente recordara el nombre de la mascota mencionado 3 turnos atrás, se utilizó la memoria del grafo (`booking_info` en `AgentState`). El nodo de booking utiliza **Structured Output** de OpenAI para extraer entidades JSON del chat y actualizar este estado incrementalmente, sin necesidad de pedir todos los datos de nuevo.
+
+---
+
+## 📂 Estructura del Proyecto
+
+```text
+code-challenge-ia/
+├── data/                  # Base de conocimientos (PDFs, TXT, MD)
+├── logs/                  # Archivos de log generados en tiempo de ejecución
+├── src/
+│   ├── agents/            # Lógica de Negocio (Strategy Pattern)
+│   │   ├── booking.py     # Agente de Citas (Slot Filling)
+│   │   ├── rag.py         # Agente de Conocimiento
+│   │   └── router.py      # Clasificador de Intención
+│   ├── core/              # Infraestructura (Singleton Pattern)
+│   │   ├── llm.py         # Cliente OpenAI
+│   │   ├── vectorstore.py # Ingesta RAG + OCR
+│   │   └── logger.py      # Configuración de logs
+│   ├── graph/             # Orquestación
+│   │   └── workflow.py    # Grafo LangGraph
+│   ├── tools/             # Herramientas (Mock APIs)
+│   └── state.py           # Definición del Estado (TypedDict)
+├── tests/                 # Pruebas Automatizadas (Pytest)
+├── main.py                # Punto de entrada (CLI)
+└── requirements.txt       # Dependencias del proyecto
+```
