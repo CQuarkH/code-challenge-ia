@@ -16,7 +16,7 @@ def escalation_node(state: AgentState):
     user_msg = state["messages"][-1].content
     
     # llamar a la herramienta
-    ticket_id = request_human_agent(user_msg)
+    ticket_id = request_human_agent.invoke({"user_info": user_msg})
     
     response = f"Entiendo tu situación. He generado un ticket de atención urgente con ID **{ticket_id}**. Un especialista humano te contactará a la brevedad."
     
