@@ -77,7 +77,7 @@ def booking_node(state: AgentState):
     # --- FASE 2: LÓGICA DE NEGOCIO Y DECISIÓN ---
     
     # campos obligatorios (validación)
-    required_fields = ["owner_name", "phone", "pet_name", "pet_species", "pet_age", "reason", "desired_time"]
+    required_fields = ["owner_name", "phone", "email", "pet_name", "pet_species", "pet_age", "reason", "desired_time"]
     missing = [f for f in required_fields if f not in current_info]
     
     # caso a: faltan datos -> preguntar nuevamente
@@ -85,6 +85,7 @@ def booking_node(state: AgentState):
         field_names_es = {
             "owner_name": "su nombre completo",
             "phone": "un teléfono de contacto",
+            "email": "un correo electrónico",
             "pet_name": "el nombre de la mascota",
             "pet_species": "la especie (perro, gato...)",
             "pet_age": "la edad de la mascota",

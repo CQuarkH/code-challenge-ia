@@ -34,7 +34,7 @@ def test_booking_flow_slot_filling():
     
     # usuario completa lo que falta (teléfono, motivo, especie) excepto hora
     state["booking_info"] = info
-    state["messages"].append(HumanMessage(content="Es un perro, tiene 5 años, tiene vómitos. Mi cel es 555-1234"))
+    state["messages"].append(HumanMessage(content="Es un perro, tiene 5 años, tiene vómitos. Mi cel es 555-1234 y mi mail es carlos@ejemplo.com"))
     
     print("\n--- PASO 3: Resto de datos (menos hora) ---")
     result = booking_node(state)
@@ -50,6 +50,7 @@ def test_booking_availability_check():
     full_info = {
         "owner_name": "Ana",
         "phone": "999",
+        "email": "ana@ejemplo.com",
         "pet_name": "Mishi",
         "pet_species": "Gato",
         "pet_age": "2 años",
