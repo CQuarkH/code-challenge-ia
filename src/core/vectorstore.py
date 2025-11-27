@@ -1,6 +1,9 @@
 import os
 import shutil
-from langchain_community.document_loaders import DirectoryLoader, TextLoader, PyPDFLoader
+import fitz 
+from rapidocr_onnxruntime import RapidOCR
+from langchain_community.document_loaders import DirectoryLoader, TextLoader
+from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
@@ -12,12 +15,54 @@ _vectorstore_instance = None
 DATA_PATH = "data/info-mascotas"
 CHROMA_PATH = "data/.chroma_db"
 
+def ocr_pdf_loader(file_path: str) -> list[Document]:
+    """
+    Función personalizada que lee PDFs.
+    Si el PDF es de texto, lo lee rápido.
+    Si es de imágenes (scanned), usa RapidOCR para extraer el texto.
+    """
+    doc = fitz.open(file_path)
+    ocr_engine = RapidOCR() # modo OCR
+    extracted_docs = []
+
+    print(f"   [OCR] Procesando {os.path.basename(file_path)}...")
+    
+    for i, page in enumerate(doc):
+        text = page.get_text()
+        
+        # heurística: si la página tiene muy poco texto (<50 chars), asumimos que es imagen
+        if len(text.strip()) < 50:
+            print(f"      - Pág {i+1}: Detectada imagen/escaneo. Aplicando OCR...")
+            # convertir la página a imagen en memoria
+            pix = page.get_pixmap()
+            img_bytes = pix.tobytes("png")
+            
+            # ejecutamos OCR
+            result, _ = ocr_engine(img_bytes)
+            
+            if result:
+                # rapidOCR devuelve una lista de tuplas, unimos el texto encontrado
+                text = "\n".join([line[1] for line in result])
+            else:
+                text = ""
+        
+        # solo agregamos si logramos sacar texto
+        if text.strip():
+            # creamos el objeto Document con metadata
+            extracted_docs.append(Document(
+                page_content=text,
+                metadata={"source": file_path, "page": i+1}
+            ))
+            
+    return extracted_docs
+
 def get_vectorstore():
     global _vectorstore_instance
     
     if _vectorstore_instance is None:
         embeddings = OpenAIEmbeddings()
 
+        # si ya existe DB, se carga nomás
         if os.path.exists(CHROMA_PATH):
              print("--- Cargando Vector Store existente desde disco ---")
              _vectorstore_instance = Chroma(
@@ -25,32 +70,34 @@ def get_vectorstore():
                  embedding_function=embeddings
              )
         
+        # si no, se crea uno nuevo
         elif os.path.exists(DATA_PATH) and os.listdir(DATA_PATH):
-            print("--- Inicializando Vector Store desde documentos fuente ---")
+            print("--- 🚀 Inicializando Vector Store con MOTOR OCR ---")
             
             docs = []
             
-            ## hasta ahora con soporte para TXT, PDF y MD
-            
-            # 1. cargar PDFs
-            print("   Buscando archivos PDF...")
-            loader_pdf = DirectoryLoader(DATA_PATH, glob="*.pdf", loader_cls=PyPDFLoader)
-            docs.extend(loader_pdf.load())
+            # 1. cargar TXT y MD
+            print("   Buscando archivos de texto (TXT/MD)...")
+            txt_loader = DirectoryLoader(DATA_PATH, glob="*.txt", loader_cls=TextLoader)
+            md_loader = DirectoryLoader(DATA_PATH, glob="*.md", loader_cls=TextLoader)
+            docs.extend(txt_loader.load())
+            docs.extend(md_loader.load())
 
-            # 2. cargar TXT
-            print("   Buscando archivos TXT...")
-            loader_txt = DirectoryLoader(DATA_PATH, glob="*.txt", loader_cls=TextLoader)
-            docs.extend(loader_txt.load())
+            # 2. cargar PDFs con OCR
+            pdf_files = [f for f in os.listdir(DATA_PATH) if f.lower().endswith(".pdf")]
+            print(f"   Buscando PDFs ({len(pdf_files)} encontrados)...")
             
-            # 3. cargar markdown (como texto plano para RAG simple)
-            print("   Buscando archivos Markdown...")
-            loader_md = DirectoryLoader(DATA_PATH, glob="*.md", loader_cls=TextLoader)
-            docs.extend(loader_md.load())
+            for pdf_file in pdf_files:
+                full_path = os.path.join(DATA_PATH, pdf_file)
+                try:
+                    pdf_docs = ocr_pdf_loader(full_path)
+                    docs.extend(pdf_docs)
+                except Exception as e:
+                    print(f"   ❌ Error procesando PDF {pdf_file}: {e}")
 
-            print(f"   Total documentos cargados: {len(docs)}")
+            print(f"   Total páginas/documentos procesados: {len(docs)}")
             
             if not docs:
-                print("ADVERTENCIA: No se encontraron archivos válidos (.txt, .pdf, .md).")
                 return None
 
             # transformación
@@ -58,8 +105,7 @@ def get_vectorstore():
             splits = text_splitter.split_documents(docs)
             print(f"   Divididos en {len(splits)} fragmentos.")
             
-            # creación e ingesta
-            print("   Creando embeddings y persistiendo ChromaDB...")
+            # ingesta
             _vectorstore_instance = Chroma.from_documents(
                 documents=splits, 
                 embedding=embeddings,
@@ -68,18 +114,20 @@ def get_vectorstore():
             print("--- Vector Store Listo ---")
             
         else:
-            print(f"ADVERTENCIA: No se encontraron documentos en {DATA_PATH} ni DB existente.")
             return None
 
     return _vectorstore_instance
 
 def get_retriever():
     vs = get_vectorstore()
-    return vs.as_retriever() if vs else None
+    if not vs: return None
+    
+    # estrategia MMR
+    return vs.as_retriever(search_type="mmr", search_kwargs={'k': 8, 'fetch_k': 20})
 
+# resetear el vectorstore para testing
 def reset_vectorstore():
     global _vectorstore_instance
     if os.path.exists(CHROMA_PATH):
         shutil.rmtree(CHROMA_PATH)
     _vectorstore_instance = None
-    print("Vector Store reseteado.")
