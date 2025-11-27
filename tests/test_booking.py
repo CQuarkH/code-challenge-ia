@@ -15,12 +15,11 @@ def test_booking_flow_slot_filling():
     
     print("\n--- PASO 1: Inicio ---")
     result = booking_node(state)
-    
     # el agente debería pedir el nombre o algún dato faltante
     print(f"Bot: {result['messages'][0].content}")
     assert len(result['booking_info']) == 0
     
-    # 2. el usuario da el nombre y mascota
+    # el usuario da el Nombre y Mascota
     state["booking_info"] = result["booking_info"] # actualizar estado simulando el grafo
     state["messages"].append(HumanMessage(content="Me llamo Carlos y mi perro es Bobby"))
     
@@ -33,27 +32,27 @@ def test_booking_flow_slot_filling():
     assert info.get("owner_name") == "Carlos"
     assert "Bobby" in info.get("pet_name", "") or "Bobby" in str(info)
     
-    # 3. usuario completa lo que falta (teléfono, motivo, especie) excepto hora
+    # usuario completa lo que falta (teléfono, motivo, especie) excepto hora
     state["booking_info"] = info
-    state["messages"].append(HumanMessage(content="Es un perro, tiene vómitos. Mi cel es 555-1234"))
+    state["messages"].append(HumanMessage(content="Es un perro, tiene 5 años, tiene vómitos. Mi cel es 555-1234"))
     
     print("\n--- PASO 3: Resto de datos (menos hora) ---")
     result = booking_node(state)
     print(f"Bot: {result['messages'][0].content}")
     
-    # verificación: debería pedir la hora
+    # verificación: pedir la hora
     assert "hora" in result['messages'][0].content.lower() or "cuándo" in result['messages'][0].content.lower()
     assert result["booking_info"].get("phone") == "555-1234"
 
 def test_booking_availability_check():
     """Prueba que cuando tiene todo, llama a la disponibilidad"""
-    
-    # prepara un estado con casi todo listo
+    # preparamos un estado con casi todo listo
     full_info = {
         "owner_name": "Ana",
         "phone": "999",
         "pet_name": "Mishi",
         "pet_species": "Gato",
+        "pet_age": "2 años",
         "reason": "Vacuna"
         # falta desired_time!!!
     }
