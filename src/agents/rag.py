@@ -4,12 +4,15 @@ from langchain_core.messages import AIMessage
 from src.core.llm import get_llm
 from src.core.vectorstore import get_retriever
 from src.state import AgentState
+from src.core.logger import get_logger
+
+logger = get_logger("RAG")
 
 def rag_node(state: AgentState):
     """
     Estrategia RAG: Recupera contexto y responde preguntas técnicas.
     """
-    print("--- AGENTE RAG: Procesando consulta ---")
+    logger.info("--- AGENTE RAG: Procesando consulta ---")
     
     messages = state["messages"]
     # asumir que la pregunta es el último mensaje del usuario
@@ -24,19 +27,11 @@ def rag_node(state: AgentState):
         return {"messages": [AIMessage(content=error_msg)]}
 
     # 2. recuperación (Retrieval)
-    print(f"Buscando en documentos sobre: '{question}'")
+    logger.info(f"Buscando en documentos sobre: '{question}'")
     try:
         docs = retriever.invoke(question)
-        # --- DEBUG ---
-        print("\n--- DEBUG: CONTENIDO RECUPERADO ---")
-        for i, doc in enumerate(docs):
-            print(f"CHUNK {i+1} (Fuente: {doc.metadata.get('source', 'unknown')}):")
-            print(f"{doc.page_content[:150]}...") # printear solo el inicio para no saturar
-            print("-" * 20)
-        print("--- FIN DEBUG ---\n")
-        # -------------------------------
     except Exception as e:
-        print(f"Error recuperando documentos: {e}")
+        logger.error(f"Error recuperando documentos: {e}")
         docs = []
     
     # si no encuentra nada o falla
@@ -45,7 +40,7 @@ def rag_node(state: AgentState):
 
     # formatear contexto
     context = "\n\n".join([d.page_content for d in docs])
-    print(f"Contexto recuperado: {len(docs)} fragmentos.")
+    logger.info(f"Contexto recuperado: {len(docs)} fragmentos.")
 
     # 3. generación de respuesta 
     system_prompt = """Eres un asistente veterinario de la clínica 'VetCare AI'.
@@ -70,10 +65,10 @@ def rag_node(state: AgentState):
     try:
         response = rag_chain.invoke({"context": context, "question": question})
     except Exception as e:
-        print(f"Error generando respuesta LLM: {e}")
+        logger.error(f"Error generando respuesta LLM: {e}")
         response = "Tuve un problema generando la respuesta. Por favor intenta más tarde."
 
-    print("--- ✅ Respuesta generada ---")
+    logger.info("--- ✅ Respuesta generada ---")
     
     # retornamos el mensaje para que LangGraph lo añada al historial
     return {"messages": [AIMessage(content=response)]}
