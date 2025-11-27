@@ -2,6 +2,10 @@ from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 from src.core.llm import get_llm
 from src.state import AgentState
+from src.core.logger import get_logger
+
+
+logger = get_logger("Router")
 
 # 1. definir la estructura de salida estricta
 # para obligar al LLM a elegir una de las opciones sin complicaciones
@@ -16,7 +20,7 @@ def router_node(state: AgentState):
     """
     Nodo del Grafo: Analiza el último mensaje y actualiza el estado 'next_step'.
     """
-    print("--- ROUTER: Clasificando intención del usuario ---")
+    logger.info("--- ROUTER: Clasificando intención del usuario ---")
     
     # obtener el último mensaje del historial
     messages = state["messages"]
@@ -50,10 +54,10 @@ def router_node(state: AgentState):
         decision = router_chain.invoke({"question": user_text})
         destination = decision.destination
     except Exception as e:
-        print(f"Error en clasificación: {e}. Derivando a humano por seguridad.")
+        logger.error(f"Error en clasificación: {e}. Derivando a humano por seguridad.")
         destination = "escalate_to_human"
         
-    print(f"--- Decisión: {destination} ---")
+    logger.info(f"--- Decisión: {destination} ---")
     
     # actualizar el estado. 
     return {"next_step": destination}

@@ -6,9 +6,11 @@ from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from dotenv import load_dotenv
+from src.core.logger import get_logger
 
+logger = get_logger("VectorStore")
 load_dotenv()
 
 _vectorstore_instance = None
@@ -25,7 +27,7 @@ def ocr_pdf_loader(file_path: str) -> list[Document]:
     ocr_engine = RapidOCR() # modo OCR
     extracted_docs = []
 
-    print(f"   [OCR] Procesando {os.path.basename(file_path)}...")
+    logger.info(f"   [OCR] Procesando {os.path.basename(file_path)}...")
     
     for i, page in enumerate(doc):
         text = page.get_text()
@@ -64,7 +66,7 @@ def get_vectorstore():
 
         # si ya existe DB, se carga nomás
         if os.path.exists(CHROMA_PATH):
-             print("--- Cargando Vector Store existente desde disco ---")
+             logger.info("--- Cargando Vector Store existente desde disco ---")
              _vectorstore_instance = Chroma(
                  persist_directory=CHROMA_PATH, 
                  embedding_function=embeddings
@@ -72,12 +74,12 @@ def get_vectorstore():
         
         # si no, se crea uno nuevo
         elif os.path.exists(DATA_PATH) and os.listdir(DATA_PATH):
-            print("--- 🚀 Inicializando Vector Store con MOTOR OCR ---")
+            logger.info("--- 🚀 Inicializando Vector Store con MOTOR OCR ---")
             
             docs = []
             
             # 1. cargar TXT y MD
-            print("   Buscando archivos de texto (TXT/MD)...")
+            logger.info("   Buscando archivos de texto (TXT/MD)...")
             txt_loader = DirectoryLoader(DATA_PATH, glob="*.txt", loader_cls=TextLoader)
             md_loader = DirectoryLoader(DATA_PATH, glob="*.md", loader_cls=TextLoader)
             docs.extend(txt_loader.load())
@@ -85,7 +87,7 @@ def get_vectorstore():
 
             # 2. cargar PDFs con OCR
             pdf_files = [f for f in os.listdir(DATA_PATH) if f.lower().endswith(".pdf")]
-            print(f"   Buscando PDFs ({len(pdf_files)} encontrados)...")
+            logger.info(f"   Buscando PDFs ({len(pdf_files)} encontrados)...")
             
             for pdf_file in pdf_files:
                 full_path = os.path.join(DATA_PATH, pdf_file)
@@ -93,9 +95,9 @@ def get_vectorstore():
                     pdf_docs = ocr_pdf_loader(full_path)
                     docs.extend(pdf_docs)
                 except Exception as e:
-                    print(f"   ❌ Error procesando PDF {pdf_file}: {e}")
+                    logger.error(f"   ❌ Error procesando PDF {pdf_file}: {e}")
 
-            print(f"   Total páginas/documentos procesados: {len(docs)}")
+            logger.info(f"   Total páginas/documentos procesados: {len(docs)}")
             
             if not docs:
                 return None
@@ -103,7 +105,7 @@ def get_vectorstore():
             # transformación
             text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
             splits = text_splitter.split_documents(docs)
-            print(f"   Divididos en {len(splits)} fragmentos.")
+            logger.info(f"   Divididos en {len(splits)} fragmentos.")
             
             # ingesta
             _vectorstore_instance = Chroma.from_documents(
@@ -111,7 +113,7 @@ def get_vectorstore():
                 embedding=embeddings,
                 persist_directory=CHROMA_PATH
             )
-            print("--- Vector Store Listo ---")
+            logger.info("--- Vector Store Listo ---")
             
         else:
             return None

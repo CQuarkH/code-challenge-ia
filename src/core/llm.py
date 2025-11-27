@@ -1,9 +1,11 @@
 import os
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
+from src.core.logger import get_logger
 
 # variable global para almacenar la instancia única del LLM (Singleton)
 _llm_instance = None
+logger = get_logger("LLM")
 
 def get_llm():
     """
@@ -22,7 +24,7 @@ def get_llm():
             # fallar rápido si no hay configuración
             raise ValueError("Error Crítico: OPENAI_API_KEY no encontrada en variables de entorno (.env)")
         
-        print("--- Inicializando instancia Singleton del LLM (gpt-3.5-turbo) ---")
+        logger.info("--- Inicializando instancia Singleton del LLM (gpt-3.5-turbo) ---")
         # gpt-3.5-turbo porque es rápido, barato y suficiente para este desafío.
         # temperature=0 es vital para que las decisiones del router y las herramientas sean predecibles.
         _llm_instance = ChatOpenAI(

@@ -6,3 +6,4 @@ venv/
 .vscode/
 data/info-mascotas/.chroma/ 
 data/.chroma_db/
+logs/
