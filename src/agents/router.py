@@ -20,13 +20,17 @@ def router_node(state: AgentState):
     logger.info("--- ROUTER: Clasificando intención ---")
     messages = state["messages"]
     last_message = messages[-1]
-    user_text = last_message.content
+    user_text = last_message.content.lower()
+    
+    # manejo de salida/cancelación temprana 
+    cancel_keywords = ["cancelar", "cancel", "no quiero", "olvídalo", "salir", "stop", "chao"]
+    is_cancelling = any(kw in user_text for kw in cancel_keywords)
     
     # recuperar si ya hay datos de una cita en proceso
     booking_info = state.get("booking_info", {})
     
     # si el diccionario tiene datos, significa que el usuario ya empezó a agendar.
-    if booking_info and len(booking_info) > 0:
+    if booking_info and len(booking_info) > 0 and not is_cancelling:
         logger.info(f"   Contexto activo detectado ({len(booking_info)} datos). Saltando clasificación y yendo a Booking.")
         return {"next_step": "schedule_appointment"}
     # --------------------------------------
