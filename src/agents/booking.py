@@ -32,6 +32,9 @@ def booking_node(state: AgentState):
     messages = state["messages"]
     current_info = state.get("booking_info", {}) or {} # asegurar que sea dict para parseo
     last_message = messages[-1]
+    
+    if "status" not in current_info:
+        current_info["status"] = "in_progress"
 
     # --- FASE 1: ACTUALIZACIÓN DE ESTADO (Extracción) ---
     
