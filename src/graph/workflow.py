@@ -12,7 +12,6 @@ def escalation_node(state: AgentState):
     """
     Nodo que maneja la derivación a un humano.
     """
-    print("--- NODO ESCALACIÓN: Creando ticket ---")
     user_msg = state["messages"][-1].content
     
     # llamar a la herramienta
