@@ -20,6 +20,7 @@ class BookingSchema(BaseModel):
     pet_breed: Optional[str] = Field(None, description="Raza de la mascota (opcional)")
     reason: Optional[str] = Field(None, description="Motivo de la consulta")
     desired_time: Optional[str] = Field(None, description="Fecha y hora deseada para la cita (ej: mañana a las 4pm)")
+    pet_age: Optional[str] = Field(None, description="Edad de la mascota")
 
 def booking_node(state: AgentState):
     """
@@ -76,7 +77,7 @@ def booking_node(state: AgentState):
     # --- FASE 2: LÓGICA DE NEGOCIO Y DECISIÓN ---
     
     # campos obligatorios (validación)
-    required_fields = ["owner_name", "phone", "pet_name", "pet_species", "reason", "desired_time"]
+    required_fields = ["owner_name", "phone", "pet_name", "pet_species", "pet_age", "reason", "desired_time"]
     missing = [f for f in required_fields if f not in current_info]
     
     # caso a: faltan datos -> preguntar nuevamente
@@ -86,6 +87,7 @@ def booking_node(state: AgentState):
             "phone": "un teléfono de contacto",
             "pet_name": "el nombre de la mascota",
             "pet_species": "la especie (perro, gato...)",
+            "pet_age": "la edad de la mascota",
             "reason": "el motivo de la consulta",
             "desired_time": "la fecha y hora deseada"
         }
