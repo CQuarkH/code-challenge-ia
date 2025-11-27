@@ -1,6 +1,7 @@
 import sys
 from langchain_core.messages import HumanMessage
 from src.graph.workflow import create_graph
+from src.core.vectorstore import get_vectorstore
 
 # colores para la terminal pq se ve más bonito
 GREEN = "\033[92m"
@@ -9,17 +10,26 @@ RESET = "\033[0m"
 
 def main():
     print(f"{BLUE}--- VetCare AI Iniciado ---{RESET}")
+    
+    # pre-carga de conocimiento 
+    print("🧠 Cargando base de conocimientos (esto puede demorar la primera vez)...")
+    try:
+        # forzar el OCR al inicio, no durante el chat
+        get_vectorstore() 
+        print("✅ Cerebro cargado y listo.")
+    except Exception as e:
+        print(f"❌ Error cargando conocimientos: {e}")
+        return
+    # ---------------------------------------------
+
     print("Escribe 'salir' para terminar.\n")
     
-    # inicializar la app (grafo)
     try:
         app = create_graph()
     except Exception as e:
         print(f"Error crítico iniciando la app: {e}")
         return
 
-    # estado inicial de memoria volátil (en memoria RAM)
-    # en producción usaríamos un checkpointer (Redis/Postgres) para persistencia real entre sesiones.
     booking_memory = {}
     chat_history = []
 
