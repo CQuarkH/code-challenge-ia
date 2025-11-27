@@ -8,6 +8,44 @@ from src.core.logger import get_logger
 
 logger = get_logger("RAG")
 
+def is_veterinary_domain(question: str) -> bool:
+    """
+    detecta si una pregunta está relacionada con el dominio veterinario.
+    retorna False para preguntas claramente fuera de tema. (TC-E05)
+    """
+    question_lower = question.lower()
+    
+    # palabras clave que indican temas veterinarios
+    vet_keywords = [
+        'mascota', 'perro', 'gato', 'veterinari', 'vacuna', 'enferm',
+        'animal', 'cachorro', 'gatito', 'salud', 'síntoma', 'tratamiento',
+        'medicamento', 'comida', 'nutrición', 'parasito', 'pulga', 'garrapata',
+        'esterilización', 'castración', 'chip', 'adopción', 'pelaje', 'diente',
+        'veterinaria', 'clínica', 'consulta', 'ave', 'conejo', 'hámster',
+        'mascota', 'pelo', 'vómito', 'diarrea', 'comer', 'beber'
+    ]
+    
+    # palabras que claramente indican preguntas fuera del dominio
+    off_topic_indicators = [
+        'capital', 'país', 'ciudad', 'historia', 'matemática', 'física',
+        'receta cocina', 'cocinar', 'película', 'libro', 'música', 'deporte',
+        'política', 'economía', 'presidente', 'mundial', 'fútbol',
+        'humano', 'persona', 'gente', 'lasaña', 'pizza'
+    ]
+    
+    # verificar si contiene palabras veterinarias
+    has_vet_keywords = any(kw in question_lower for kw in vet_keywords)
+    
+    # verificar si contiene palabras claramente off-topic
+    has_off_topic = any(kw in question_lower for kw in off_topic_indicators)
+    
+    # si tiene off-topic Y NO tiene vet keywords, es fuera de dominio
+    if has_off_topic and not has_vet_keywords:
+        return False
+    
+    # por defecto asumir que está en dominio (mejor falso positivo que negativo)
+    return True
+
 def rag_node(state: AgentState):
     """
     Estrategia RAG: Recupera contexto y responde preguntas técnicas.
@@ -17,6 +55,17 @@ def rag_node(state: AgentState):
     messages = state["messages"]
     # asumir que la pregunta es el último mensaje del usuario
     question = messages[-1].content
+    
+    # TC-E05: pre-filtro para detectar preguntas fuera del dominio veterinario
+    if not is_veterinary_domain(question):
+        logger.info(f"   ⚠️ pregunta fuera de dominio detectada: '{question}'")
+        off_topic_msg = """Hola! Soy el asistente veterinario de VetCare AI. 🐾
+
+Mi especialidad es ayudarte con temas relacionados con el cuidado y la salud de tus mascotas (perros, gatos, aves, conejos, etc.).
+
+La pregunta que hiciste parece estar fuera de mi área de conocimiento. ¿Tienes alguna consulta sobre tu mascota en la que pueda ayudarte?"""
+        
+        return {"messages": [AIMessage(content=off_topic_msg)]}
     
     llm = get_llm()
     retriever = get_retriever()

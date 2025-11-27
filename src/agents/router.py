@@ -1,8 +1,10 @@
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.messages import AIMessage
 from pydantic import BaseModel, Field
 from src.core.llm import get_llm
 from src.state import AgentState
 from src.core.logger import get_logger
+from src.utils.input_sanitizer import sanitize_user_input
 
 logger = get_logger("Router")
 
@@ -20,7 +22,20 @@ def router_node(state: AgentState):
     logger.info("--- ROUTER: Clasificando intención ---")
     messages = state["messages"]
     last_message = messages[-1]
-    user_text = last_message.content.lower()
+    user_text = last_message.content
+    
+    # TC-E15: sanitizar input para prevenir prompt injection
+    sanitized_text, is_safe = sanitize_user_input(user_text)
+    
+    if not is_safe:
+        logger.warning(f"input bloqueado por seguridad: '{user_text[:50]}...'")
+        return {
+            "next_step": "escalate_to_human",
+            "messages": [AIMessage(content="Detecté un patrón inusual en tu mensaje. Por tu seguridad y la del sistema, te conectaré con un agente humano que podrá ayudarte mejor.")]
+        }
+    
+    # usar el texto sanitizado para el resto del procesamiento
+    user_text = sanitized_text.lower()
     
     # manejo de salida/cancelación temprana 
     cancel_keywords = ["cancelar", "cancel", "no quiero", "olvídalo", "salir", "stop", "chao"]

@@ -31,6 +31,7 @@ def main():
         return
 
     booking_memory = {}
+    availability_counter = 0  # contador para prevenir loops (TC-E12)
     chat_history = []
 
     while True:
@@ -45,7 +46,8 @@ def main():
             initial_state = {
                 "messages": chat_history + [HumanMessage(content=user_input)],
                 "booking_info": booking_memory,
-                "next_step": ""
+                "next_step": "",
+                "availability_attempts": availability_counter  # persistir contador
             }
 
             # ejecutar el grafo
@@ -55,6 +57,7 @@ def main():
             # extraer la respuesta final y el estado actualizado
             last_message = result["messages"][-1].content
             booking_memory = result.get("booking_info", {}) # guardar lo que aprendió el agente para la memoria
+            availability_counter = result.get("availability_attempts", 0)  # actualizar contador
             
             chat_history = result["messages"] # actualizar historial completo
             

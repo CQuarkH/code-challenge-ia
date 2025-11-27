@@ -18,3 +18,6 @@ class AgentState(TypedDict):
     
     # Una señal interna para que el Router sepa qué nodo ejecutar a continuación.
     next_step: str
+    
+    # contador para prevenir loop infinito en verificación de disponibilidad (TC-E12)
+    availability_attempts: int

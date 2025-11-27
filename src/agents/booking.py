@@ -1,7 +1,8 @@
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import AIMessage, ToolMessage
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr, validator, ValidationError
 from typing import Optional
+import re
 from src.core.llm import get_llm
 from src.state import AgentState
 from src.tools.mock_api import check_availability
@@ -11,16 +12,45 @@ from src.core.logger import get_logger
 logger = get_logger("Booking")
 
 # schema que se quiere extraer para agendamiento
+# ahora con validaciones para prevenir datos inválidos (TC-E08, TC-E09)
 class BookingSchema(BaseModel):
-    owner_name: Optional[str] = Field(None, description="Nombre del dueño")
+    owner_name: Optional[str] = Field(None, description="Nombre del dueño", min_length=2)
     phone: Optional[str] = Field(None, description="Teléfono de contacto")
-    email: Optional[str] = Field(None, description="Correo electrónico")
-    pet_name: Optional[str] = Field(None, description="Nombre de la mascota")
+    email: Optional[EmailStr] = Field(None, description="Correo electrónico válido")
+    pet_name: Optional[str] = Field(None, description="Nombre de la mascota", min_length=1)
     pet_species: Optional[str] = Field(None, description="Especie (perro, gato, etc)")
     pet_breed: Optional[str] = Field(None, description="Raza de la mascota (opcional)")
-    reason: Optional[str] = Field(None, description="Motivo de la consulta")
+    reason: Optional[str] = Field(None, description="Motivo de la consulta", min_length=3)
     desired_time: Optional[str] = Field(None, description="Fecha y hora deseada para la cita (ej: mañana a las 4pm)")
     pet_age: Optional[str] = Field(None, description="Edad de la mascota")
+
+    @validator('phone')
+    def validate_phone(cls, v):
+        """valida que el teléfono tenga formato numérico válido"""
+        if v is None:
+            return v
+        
+        # limpiar espacios, guiones y paréntesis comunes
+        clean_phone = re.sub(r'[\s\-()]', '', v)
+        
+        # validar que sea numérico con posible + al inicio (internacional)
+        if not re.match(r'^\+?[0-9]{7,15}$', clean_phone):
+            raise ValueError('el teléfono debe contener entre 7 y 15 dígitos numéricos')
+        
+        return clean_phone
+    
+    @validator('pet_age')
+    def validate_age(cls, v):
+        """valida que la edad contenga al menos un número"""
+        if v is None:
+            return v
+        
+        # buscar números en el texto (ej: "5 años", "2 meses")
+        numbers = re.findall(r'\d+', v)
+        if not numbers:
+            raise ValueError('la edad debe incluir al menos un número (ej: "3 años", "6 meses")')
+        
+        return v
 
 def booking_node(state: AgentState):
     """
@@ -71,9 +101,35 @@ def booking_node(state: AgentState):
                 current_info.update(result_dict)
             else:
                 logger.info("   ⚠️ No se extrajeron datos nuevos.")
+        
+        except ValidationError as ve:
+            # TC-E08, TC-E09: manejar errores de validación (email, teléfono inválidos)
+            logger.warning(f"validación fallida: {ve}")
+            
+            # identificar el campo problemático
+            error_field = ve.errors()[0]['loc'][0]
+            error_msg = ve.errors()[0]['msg']
+            
+            # mapeo de nombres técnicos a nombres amigables
+            field_names = {
+                "phone": "número de teléfono",
+                "email": "correo electrónico",
+                "pet_age": "edad de la mascota",
+                "owner_name": "nombre",
+                "reason": "motivo de la consulta"
+            }
+            
+            friendly_field = field_names.get(error_field, error_field)
+            friendly_msg = f"Disculpa, el {friendly_field} que proporcionaste no tiene un formato válido.\n\n{error_msg}\n\n¿Podrías intentar de nuevo?"
+            
+            return {
+                "messages": [AIMessage(content=friendly_msg)],
+                "booking_info": current_info  # mantener lo que ya teníamos
+            }
                 
         except Exception as e:
             logger.error(f"Error en extracción: {e}")
+            # continuar sin actualizar
 
     # guardar la info actualizada en el estado global inmediatamente
 
@@ -117,21 +173,59 @@ def booking_node(state: AgentState):
     logger.info("   ✅ Todos los datos recolectados. Verificando disponibilidad...")
     time_str = current_info["desired_time"]
     
+    # TC-E12: obtener el contador de intentos de disponibilidad
+    attempts = state.get("availability_attempts", 0)
+    MAX_ATTEMPTS = 3
+    
     # llamada a la herramienta (función importada)
     is_available = check_availability.invoke({"day": "generic", "hour": time_str})
     
     if is_available:
         response = f"¡Listo! He confirmado la cita para {current_info['pet_name']} ({current_info['pet_species']}) el {time_str}. \nDatos de contacto: {current_info['owner_name']} - {current_info['phone']}.\n¡Nos vemos pronto!"
-        # opcional: limpiar el estado de booking después de confirmar
+        # limpiar el estado de booking y resetear contador después de confirmar
         return {
             "messages": [AIMessage(content=response)],
-            "booking_info": {} # limpiar para la próxima
+            "booking_info": {},  # limpiar para la próxima
+            "availability_attempts": 0  # resetear contador
         }
     else:
-        response = f"Lo siento, verifiqué la agenda y el horario '{time_str}' NO está disponible. 😓\n¿Podría indicarme otra fecha u hora alternativa?"
+        # incrementar el contador de intentos fallidos
+        new_attempts = attempts + 1
+        
+        # TC-E12: si supera el máximo, escalar a humano automáticamente
+        if new_attempts >= MAX_ATTEMPTS:
+            from src.tools.mock_api import request_human_agent
+            
+            logger.warning(f"   ⚠️ máximo de intentos alcanzado ({MAX_ATTEMPTS}). escalando a humano...")
+            
+            # preparar información para el ticket
+            user_summary = f"Usuario: {current_info.get('owner_name', 'Desconocido')}, Teléfono: {current_info.get('phone', 'N/A')}, Email: {current_info.get('email', 'N/A')}"
+            issue_summary = f"Problemas de disponibilidad después de {MAX_ATTEMPTS} intentos. Última hora solicitada: {time_str}"
+            
+            ticket_id = request_human_agent.invoke({
+                "user_info": f"{user_summary} | {issue_summary}"
+            })
+            
+            escalation_msg = f"Veo que has intentado {MAX_ATTEMPTS} horarios diferentes y ninguno está disponible. 😓\n\n"
+            escalation_msg += f"He generado un ticket de atención prioritaria (**{ticket_id}**) para que un coordinador humano revise la agenda completa contigo y te ofrezca las mejores alternativas disponibles.\n\n"
+            escalation_msg += "Te contactaremos pronto a tu teléfono o email. ¡Gracias por tu paciencia!"
+            
+            return {
+                "messages": [AIMessage(content=escalation_msg)],
+                "booking_info": {},  # limpiar
+                "availability_attempts": 0,  # resetear
+                "next_step": "end"  # terminar el flujo
+            }
+        
+        # si aún hay intentos disponibles, continuar solicitando otra hora
+        response = f"Lo siento, verifiqué la agenda y el horario '{time_str}' NO está disponible. 😓\n"
+        response += f"(Intento {new_attempts}/{MAX_ATTEMPTS})\n\n"
+        response += "¿Podrías indicarme otra fecha u hora alternativa?"
+        
         # borrar solo la hora para obligar a pedirla de nuevo
         del current_info["desired_time"]
         return {
             "messages": [AIMessage(content=response)],
-            "booking_info": current_info
+            "booking_info": current_info,
+            "availability_attempts": new_attempts  # persistir el nuevo contador
         }

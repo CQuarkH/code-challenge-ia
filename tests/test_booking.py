@@ -42,7 +42,8 @@ def test_booking_flow_slot_filling():
     
     # verificación: pedir la hora
     assert "hora" in result['messages'][0].content.lower() or "cuándo" in result['messages'][0].content.lower()
-    assert result["booking_info"].get("phone") == "555-1234"
+    # el validador limpia el formato, así que esperamos sin guiones
+    assert result["booking_info"].get("phone") == "5551234"
 
 def test_booking_availability_check():
     """Prueba que cuando tiene todo, llama a la disponibilidad"""
