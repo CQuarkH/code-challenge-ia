@@ -5,6 +5,10 @@ from typing import Optional
 from src.core.llm import get_llm
 from src.state import AgentState
 from src.tools.mock_api import check_availability
+from src.core.logger import get_logger
+
+
+logger = get_logger("Booking")
 
 # schema que se quiere extraer para agendamiento
 class BookingSchema(BaseModel):
@@ -21,7 +25,7 @@ def booking_node(state: AgentState):
     """
     Gestiona el flujo de agendamiento: Recolecta datos -> Verifica disponibilidad -> Confirma.
     """
-    print("--- AGENTE BOOKING: Gestionando cita ---")
+    logger.info("--- AGENTE BOOKING: Gestionando cita ---")
     
     # recuperar estado actual
     messages = state["messages"]
@@ -49,7 +53,7 @@ def booking_node(state: AgentState):
         
         chain = extraction_prompt | extractor
         try:
-            print(f"   Analizando input: '{last_message.content}'")
+            logger.info(f"   Analizando input: '{last_message.content}'")
             # extracción
             result = chain.invoke({
                 "current_info": str(current_info),
@@ -59,13 +63,13 @@ def booking_node(state: AgentState):
             # actualizar solo los campos que el LLM encontró
             result_dict = result.model_dump(exclude_none=True)
             if result_dict:
-                print(f"   📝 Datos extraídos: {result_dict}")
+                logger.info(f"   📝 Datos extraídos: {result_dict}")
                 current_info.update(result_dict)
             else:
-                print("   ⚠️ No se extrajeron datos nuevos.")
+                logger.info("   ⚠️ No se extrajeron datos nuevos.")
                 
         except Exception as e:
-            print(f"Error en extracción: {e}")
+            logger.error(f"Error en extracción: {e}")
 
     # guardar la info actualizada en el estado global inmediatamente
 
@@ -104,7 +108,7 @@ def booking_node(state: AgentState):
     # aquí simulamos la llamada a la herramienta dentro del nodo para simplificar el flujo
     # (en un grafo más complejo, la herramienta sería otro nodo, pero aquí lo haremos directo)
     
-    print("   ✅ Todos los datos recolectados. Verificando disponibilidad...")
+    logger.info("   ✅ Todos los datos recolectados. Verificando disponibilidad...")
     time_str = current_info["desired_time"]
     
     # llamada a la herramienta (función importada)
