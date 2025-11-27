@@ -5,3 +5,4 @@ langgraph
 chromadb
 python-dotenv
 tiktoken
+pypdf

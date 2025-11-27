@@ -5,3 +5,4 @@ venv/
 .idea/
 .vscode/
 data/info-mascotas/.chroma/ 
+data/.chroma_db/
