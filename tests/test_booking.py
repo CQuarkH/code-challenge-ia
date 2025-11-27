@@ -17,7 +17,7 @@ def test_booking_flow_slot_filling():
     result = booking_node(state)
     # el agente debería pedir el nombre o algún dato faltante
     print(f"Bot: {result['messages'][0].content}")
-    assert len(result['booking_info']) == 0
+    assert result['booking_info'].get("status") == "in_progress"
     
     # el usuario da el Nombre y Mascota
     state["booking_info"] = result["booking_info"] # actualizar estado simulando el grafo
@@ -48,6 +48,7 @@ def test_booking_availability_check():
     """Prueba que cuando tiene todo, llama a la disponibilidad"""
     # preparamos un estado con casi todo listo
     full_info = {
+        "status": "in_progress",
         "owner_name": "Ana",
         "phone": "999",
         "email": "ana@ejemplo.com",
